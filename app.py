@@ -13,6 +13,8 @@ options = Options()
 # Chrome v75からW3CモードがデフォルトONになったので指定する
 options.add_experimental_option('w3c', False)
 options.add_argument('--headless')
+options.add_argument('--dns-prefetch-disable')
+
 
 ## -------------------------------------
 ## ExcelのURLからスクショを保存
@@ -47,26 +49,25 @@ def capture(device):
   config = getDeviceConfig(device)
   # Chrome Driver 起動
   driver = webdriver.Chrome(options=options)
+  print('START CAPTURE FILE')
   ##  URLを取得（キャプチャ保存）
   for row in range(sheet.nrows):
     URL = sheet.cell(row, 2).value
+    _idlist = str(IDLIST[row])
+    print(URL)
     URLLIST.append(URL)
     ## 画面遷移
     driver.get(URL)
+
     # スクリーンサイズ設定
-    # page_width = driver.execute_script('return document.body.scrollWidth')
     page_height = driver.execute_script('return document.body.scrollHeight')
     driver.set_window_size(config['windowWidth'], page_height)
 
-    ## 遷移直後だと崩れた状態でスクショされる可能性があるため、1秒待機
-    time.sleep(1)
+    time.sleep(2)
     driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
 
-    ## 文字列変換
-    _IDLIST = str(IDLIST[row])
-
     ## 画面キャプチャを保存
-    FILENAME = os.path.join(saveDir, _IDLIST + config['imgSuffix'] + '.png')
+    FILENAME = os.path.join(saveDir, _idlist + config['imgSuffix'] + '.png')
     driver.save_screenshot(FILENAME)
   # Chrome Driver 終了
   driver.quit()
@@ -89,15 +90,15 @@ def createExcelFile(condition):
             num = 10
         else:
             num = (row+1)%10
-
         for j in range(num):
             _idlist = str(IDLIST[count])
+            _title = TITLELIST[count][:31]
             ## シートを追加
-            worksheet = workbook.add_worksheet(_idlist + '_' + TITLELIST[count])
+            worksheet = workbook.add_worksheet(_idlist + '_' + _title)
 
             ## 対象ページの情報を記載
             worksheet.write('A1', _idlist)
-            worksheet.write('A2', TITLELIST[count])
+            worksheet.write('A2', _title)
             worksheet.write('A3', URLLIST[count])
 
             ## 画像を添付
@@ -147,12 +148,13 @@ def getCaptureDir():
 
 #
 # キャプチャデバイス用変数管理
+# windowWidth *2 でレンダリングされる
 #
 def getDeviceConfig(device = 'pc'):
   config = {
     'pc': {
-      'windowWidth' : 1200,
-      'imgSuffix' : ''
+      'windowWidth' : 600, 
+      'imgSuffix' : '_pc'
     },
     'sp': {
       'windowWidth' : 375,
@@ -173,8 +175,10 @@ captureCond = confirmCaptureDevice()
 
 def execute():
   if(captureCond == 1 or captureCond == 2):
+    print('Z')
     capture('pc')
   if(captureCond == 1 or captureCond == 3):
+    print('B')
     capture('sp')
   createExcelFile(captureCond)
   print('FINISH')
