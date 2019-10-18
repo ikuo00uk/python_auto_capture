@@ -7,27 +7,12 @@ import shutil
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
-# 
-# 保存用ディレクトリの作成
-# 
-def getCaptureDir():
-  path = 'capture'
-  isDir = os.path.isdir(path)
-  if(not isDir):
-    os.mkdir(path)
-  else:
-    shutil.rmtree(path)
-    os.mkdir(path)
-  print('INITIALIZE CAPTURE SAVE DIRECTORY')
-  return os.path.dirname(os.path.abspath(__file__))+ '/' + path
+# 実行スクリプト
 
 options = Options()
 # Chrome v75からW3CモードがデフォルトONになったので指定する
 options.add_experimental_option('w3c', False)
 options.add_argument('--headless')
-
-# 格納するディレクトリを生成
-saveDir = getCaptureDir()
 
 ## -------------------------------------
 ## ExcelのURLからスクショを保存
@@ -54,23 +39,24 @@ for row in range(sheet.nrows):
     TITLE = sheet.cell(row, 1).value
     TITLELIST.append(TITLE)
 
-## PCキャプチャ
-## ブラウザを起動
-driver = webdriver.Chrome(options=options)
+## UA判定が必要な場合は上記を削除し、以下を使用
+# USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A356 Safari/604.1"
+# driver = webdriver.PhantomJS(desired_capabilities={'phantomjs.page.settings.userAgent': USER_AGENT})
 
-##  URLを取得（キャプチャ保存）
-for row in range(sheet.nrows):
-    ## セルの値（URL）を取得
+def capture(device):
+  config = getDeviceConfig(device)
+  # Chrome Driver 起動
+  driver = webdriver.Chrome(options=options)
+  ##  URLを取得（キャプチャ保存）
+  for row in range(sheet.nrows):
     URL = sheet.cell(row, 2).value
     URLLIST.append(URL)
-
     ## 画面遷移
     driver.get(URL)
-
     # スクリーンサイズ設定
     # page_width = driver.execute_script('return document.body.scrollWidth')
     page_height = driver.execute_script('return document.body.scrollHeight')
-    driver.set_window_size(1200, page_height)
+    driver.set_window_size(config['windowWidth'], page_height)
 
     ## 遷移直後だと崩れた状態でスクショされる可能性があるため、1秒待機
     time.sleep(1)
@@ -80,90 +66,117 @@ for row in range(sheet.nrows):
     _IDLIST = str(IDLIST[row])
 
     ## 画面キャプチャを保存
-    FILENAME = os.path.join(saveDir, _IDLIST + '.png')
+    FILENAME = os.path.join(saveDir, _IDLIST + config['imgSuffix'] + '.png')
     driver.save_screenshot(FILENAME)
-
-    print(IDLIST[row])
-
-## ブラウザを閉じる
-driver.quit()
-
-print('DONE CAPTURE PC SITE')
-
-## SPキャプチャ
-## ブラウザを起動
-driver = webdriver.Chrome(options=options)
-
-## UA判定が必要な場合は上記を削除し、以下を使用
-# USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A356 Safari/604.1"
-# driver = webdriver.PhantomJS(desired_capabilities={'phantomjs.page.settings.userAgent': USER_AGENT})
-
-##  URLを取得（キャプチャ保存）
-for row in range(sheet.nrows):
-    ## セルの値（URL）を取得
-    URL = sheet.cell(row, 2).value
-
-    ## 画面遷移
-    driver.get(URL)
-
-    # スクリーンサイズ設定
-    page_height = driver.execute_script('return document.body.scrollHeight')
-    driver.set_window_size(375, page_height)
-
-    ## 遷移直後だと崩れた状態でスクショされる可能性があるため、1秒待機
-    time.sleep(2)
-
-    ## 文字列変換
-    _IDLIST = str(IDLIST[row])
-
-    ## 画面キャプチャを保存
-    FILENAME = os.path.join(saveDir, _IDLIST + '_sp.png')
-    driver.save_screenshot(FILENAME)
-
-    print(_IDLIST)
-
-## ブラウザを閉じる
-driver.quit()
-
-print('DONE CAPTURE SP SITE')
+  # Chrome Driver 終了
+  driver.quit()
+  print('DONE CAPTURE')
 
 ## -------------------------------------
 ## 保存したスクショをExcelに添付
 ## -------------------------------------
 
-## 添付した数をカウントするための変数
-count = 0
+def createExcelFile(condition):
+    ## 添付した数をカウントするための変数
+    count = 0
 
-for i in range(math.ceil((row+1)/10)):
-    ## 画像添付用のExcelを作成
-    workbook = xlsxwriter.Workbook(saveDir + '/' + 'capture' + str(i+1) + '.xlsx')
+    for i in range(math.ceil((row+1)/10)):
+        ## 画像添付用のExcelを作成
+        workbook = xlsxwriter.Workbook(saveDir + '/' + 'capture' + str(i+1) + '.xlsx')
 
-    ## 残り添付数を計算
-    if (row+1)-count >= 10:
-        num = 10
-    else:
-        num = (row+1)%10
+        ## 残り添付数を計算
+        if (row+1)-count >= 10:
+            num = 10
+        else:
+            num = (row+1)%10
 
-    for j in range(num):
-        _idlist = str(IDLIST[count])
-        ## シートを追加
-        worksheet = workbook.add_worksheet(_idlist + '_' + TITLELIST[count])
+        for j in range(num):
+            _idlist = str(IDLIST[count])
+            ## シートを追加
+            worksheet = workbook.add_worksheet(_idlist + '_' + TITLELIST[count])
 
-        ## 対象ページの情報を記載
-        worksheet.write('A1', _idlist)
-        worksheet.write('A2', TITLELIST[count])
-        worksheet.write('A3', URLLIST[count])
+            ## 対象ページの情報を記載
+            worksheet.write('A1', _idlist)
+            worksheet.write('A2', TITLELIST[count])
+            worksheet.write('A3', URLLIST[count])
 
-        ## 画像を添付
-        IMAGE_SP = saveDir + '/' + _idlist + '_sp.png'
-        IMAGE_PC = saveDir + '/' + _idlist + '.png'
-        worksheet.insert_image('B4', IMAGE_SP, {'x_scale': 0.45, 'y_scale': 0.45})
-        worksheet.insert_image('H4', IMAGE_PC, {'x_scale': 0.3, 'y_scale': 0.3})
+            ## 画像を添付
+            if(condition == 1 or condition == 2):
+              IMAGE_PC = saveDir + '/' + _idlist + '.png'
+              worksheet.insert_image('H4', IMAGE_PC, {'x_scale': 0.3, 'y_scale': 0.3})
 
-        ## 添付するごとにカウントを増やす
-        count = count+1
+            if(condition == 1 or condition == 3):
+              IMAGE_SP = saveDir + '/' + _idlist + '_sp.png'
+              worksheet.insert_image('B4', IMAGE_SP, {'x_scale': 0.45, 'y_scale': 0.45})
+            ## 添付するごとにカウントを増やす
+            count = count+1
 
     ## 10シートごとにExcelを閉じる
     workbook.close()
 
 print('DONE CREATE EXCEL FILE')
+
+#
+# キャプチャ対象のデバイス確認
+#
+def confirmCaptureDevice():
+  yes = ['y', 'ye', 'yes']
+  no = ['n', 'no']
+  choice = input("PC/SPのキャプチャを取得しますか？ [y/N]: ").lower()
+  if choice in yes:
+      return 1
+  elif choice in no:
+    choice2 = input("PCのみキャプチャを取得しますか？ NOの場合SPのみ保存します [y/N]: ").lower()
+    if choice2 in yes:
+      return 2
+    else:
+      return 3
+#
+# 保存用ディレクトリの作成
+#
+def getCaptureDir():
+  path = 'capture'
+  isDir = os.path.isdir(path)
+  if(not isDir):
+    os.mkdir(path)
+  else:
+    shutil.rmtree(path)
+    os.mkdir(path)
+  print('INITIALIZE CAPTURE SAVE DIRECTORY')
+  return os.path.dirname(os.path.abspath(__file__))+ '/' + path
+
+#
+# キャプチャデバイス用変数管理
+#
+def getDeviceConfig(device = 'pc'):
+  config = {
+    'pc': {
+      'windowWidth' : 1200,
+      'imgSuffix' : ''
+    },
+    'sp': {
+      'windowWidth' : 375,
+      'imgSuffix' : "_sp"
+    }
+  }
+  if(device in config):
+    return config[device]
+  else:
+    raise ValueError("該当するキーが存在しません")
+
+
+# 格納するディレクトリを生成
+saveDir = getCaptureDir()
+
+# キャプチャ実行条件
+captureCond = confirmCaptureDevice()
+
+def execute():
+  if(captureCond == 1 or captureCond == 2):
+    capture('pc')
+  if(captureCond == 1 or captureCond == 3):
+    capture('sp')
+  createExcelFile(captureCond)
+  print('FINISH')
+
+execute()
