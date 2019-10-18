@@ -3,13 +3,31 @@ import os
 import xlsxwriter
 import math
 import time
+import shutil
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
+# 
+# 保存用ディレクトリの作成
+# 
+def getCaptureDir():
+  path = 'capture'
+  isDir = os.path.isdir(path)
+  if(not isDir):
+    os.mkdir(path)
+  else:
+    shutil.rmtree(path)
+    os.mkdir(path)
+  print('INITIALIZE CAPTURE SAVE DIRECTORY')
+  return os.path.dirname(os.path.abspath(__file__))+ '/' + path
+
 options = Options()
-# Chrome v75からW3CモードがデフォルトONになった
+# Chrome v75からW3CモードがデフォルトONになったので指定する
 options.add_experimental_option('w3c', False)
 options.add_argument('--headless')
+
+# 格納するディレクトリを生成
+saveDir = getCaptureDir()
 
 ## -------------------------------------
 ## ExcelのURLからスクショを保存
@@ -38,7 +56,7 @@ for row in range(sheet.nrows):
 
 ## PCキャプチャ
 ## ブラウザを起動
-driver = webdriver.Chrome(chrome_options=options)
+driver = webdriver.Chrome(options=options)
 
 ##  URLを取得（キャプチャ保存）
 for row in range(sheet.nrows):
@@ -52,7 +70,7 @@ for row in range(sheet.nrows):
     # スクリーンサイズ設定
     # page_width = driver.execute_script('return document.body.scrollWidth')
     page_height = driver.execute_script('return document.body.scrollHeight')
-    driver.set_window_size(769, page_height)
+    driver.set_window_size(1200, page_height)
 
     ## 遷移直後だと崩れた状態でスクショされる可能性があるため、1秒待機
     time.sleep(1)
@@ -62,7 +80,7 @@ for row in range(sheet.nrows):
     _IDLIST = str(IDLIST[row])
 
     ## 画面キャプチャを保存
-    FILENAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), _IDLIST + '.png')
+    FILENAME = os.path.join(saveDir, _IDLIST + '.png')
     driver.save_screenshot(FILENAME)
 
     print(IDLIST[row])
@@ -74,7 +92,7 @@ print('DONE CAPTURE PC SITE')
 
 ## SPキャプチャ
 ## ブラウザを起動
-driver = webdriver.Chrome(chrome_options=options)
+driver = webdriver.Chrome(options=options)
 
 ## UA判定が必要な場合は上記を削除し、以下を使用
 # USER_AGENT = "Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A356 Safari/604.1"
@@ -93,13 +111,13 @@ for row in range(sheet.nrows):
     driver.set_window_size(375, page_height)
 
     ## 遷移直後だと崩れた状態でスクショされる可能性があるため、1秒待機
-    time.sleep(1)
+    time.sleep(2)
 
     ## 文字列変換
     _IDLIST = str(IDLIST[row])
 
     ## 画面キャプチャを保存
-    FILENAME = os.path.join(os.path.dirname(os.path.abspath(__file__)), _IDLIST + '_sp.png')
+    FILENAME = os.path.join(saveDir, _IDLIST + '_sp.png')
     driver.save_screenshot(FILENAME)
 
     print(_IDLIST)
@@ -118,7 +136,7 @@ count = 0
 
 for i in range(math.ceil((row+1)/10)):
     ## 画像添付用のExcelを作成
-    workbook = xlsxwriter.Workbook('capture' + str(i+1) + '.xlsx')
+    workbook = xlsxwriter.Workbook(saveDir + '/' + 'capture' + str(i+1) + '.xlsx')
 
     ## 残り添付数を計算
     if (row+1)-count >= 10:
@@ -127,7 +145,6 @@ for i in range(math.ceil((row+1)/10)):
         num = (row+1)%10
 
     for j in range(num):
-        
         _idlist = str(IDLIST[count])
         ## シートを追加
         worksheet = workbook.add_worksheet(_idlist + '_' + TITLELIST[count])
@@ -138,8 +155,8 @@ for i in range(math.ceil((row+1)/10)):
         worksheet.write('A3', URLLIST[count])
 
         ## 画像を添付
-        IMAGE_SP = _idlist + '_sp.png'
-        IMAGE_PC = _idlist + '.png'
+        IMAGE_SP = saveDir + '/' + _idlist + '_sp.png'
+        IMAGE_PC = saveDir + '/' + _idlist + '.png'
         worksheet.insert_image('B4', IMAGE_SP, {'x_scale': 0.45, 'y_scale': 0.45})
         worksheet.insert_image('H4', IMAGE_PC, {'x_scale': 0.3, 'y_scale': 0.3})
 
@@ -148,3 +165,5 @@ for i in range(math.ceil((row+1)/10)):
 
     ## 10シートごとにExcelを閉じる
     workbook.close()
+
+print('DONE CREATE EXCEL FILE')
