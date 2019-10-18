@@ -122,7 +122,7 @@ print('DONE CREATE EXCEL FILE')
 def confirmCaptureDevice():
   yes = ['y', 'ye', 'yes']
   no = ['n', 'no']
-  choice = input("PC/SPのキャプチャを取得しますか？ [y/N]: ").lower()
+  choice = input("PCとSPそれぞれキャプチャを取得しますか？ [y/N]: ").lower()
   if choice in yes:
       return 1
   elif choice in no:
