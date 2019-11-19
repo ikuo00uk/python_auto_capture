@@ -52,23 +52,26 @@ def capture(device):
   print('START CAPTURE FILE')
   ##  URLを取得（キャプチャ保存）
   for row in range(sheet.nrows):
-    URL = sheet.cell(row, 2).value
-    _idlist = str(IDLIST[row])
-    print(URL)
-    URLLIST.append(URL)
-    ## 画面遷移
-    driver.get(URL)
+    try:
+      URL = sheet.cell(row, 2).value
+      _idlist = str(IDLIST[row])
+      print(URL)
+      URLLIST.append(URL)
+      ## 画面遷移
+      driver.get(URL)
 
-    # スクリーンサイズ設定
-    page_height = driver.execute_script('return document.body.scrollHeight')
-    driver.set_window_size(config['windowWidth'], page_height)
+      # スクリーンサイズ設定
+      page_height = driver.execute_script('return document.body.scrollHeight')
+      driver.set_window_size(config['windowWidth'], page_height)
 
-    time.sleep(2)
-    driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
-
-    ## 画面キャプチャを保存
-    FILENAME = os.path.join(saveDir, _idlist + config['imgSuffix'] + '.png')
-    driver.save_screenshot(FILENAME)
+      time.sleep(2)
+      driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+      ## 画面キャプチャを保存
+      FILENAME = os.path.join(saveDir, _idlist + config['imgSuffix'] + '.png')
+      driver.save_screenshot(FILENAME)
+    except:
+      print('error')
+      pass
   # Chrome Driver 終了
   driver.quit()
   print('DONE CAPTURE')
@@ -92,18 +95,20 @@ def createExcelFile(condition):
             num = (row+1)%10
         for j in range(num):
             _idlist = str(IDLIST[count])
-            _title = TITLELIST[count][:31]
+            _title = _idlist + '_' + TITLELIST[count]
+            _title_truncated = _title[:31]
+            
             ## シートを追加
-            worksheet = workbook.add_worksheet(_idlist + '_' + _title)
+            worksheet = workbook.add_worksheet(_title_truncated)
 
             ## 対象ページの情報を記載
             worksheet.write('A1', _idlist)
-            worksheet.write('A2', _title)
+            worksheet.write('A2', _title_truncated)
             worksheet.write('A3', URLLIST[count])
 
             ## 画像を添付
             if(condition == 1 or condition == 2):
-              IMAGE_PC = saveDir + '/' + _idlist + '.png'
+              IMAGE_PC = saveDir + '/' + _idlist + '_pc.png'
               worksheet.insert_image('H4', IMAGE_PC, {'x_scale': 0.3, 'y_scale': 0.3})
 
             if(condition == 1 or condition == 3):
@@ -175,10 +180,8 @@ captureCond = confirmCaptureDevice()
 
 def execute():
   if(captureCond == 1 or captureCond == 2):
-    print('Z')
     capture('pc')
   if(captureCond == 1 or captureCond == 3):
-    print('B')
     capture('sp')
   createExcelFile(captureCond)
   print('FINISH')
